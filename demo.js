@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded',() => {
     const title = document.getElementById('title');
     const demo = document.getElementById('demo');
     start.addEventListener('click', (event) => {
-        loadAndPlayMusic();
+        //loadAndPlayMusic();
         title.style.display = 'none';
         demo.style.display = 'block';
         startDemo();
@@ -60,17 +60,19 @@ const generateSinusArray = function(s, max, amp)
 const SinusBalls3d = function(playfield) {
     const ballNumber = 20;
 
-    const ballDeg = [0, 0, 0, 0, 0];
+    const ballDeg = [0,0,0,0,0];
 
     // x, x2, y, y2, z
     const config0 = { add: [2,1,-5,3,2], between: [ 60,-50,40,-30,20] };
-    const config1 = { add: [2,-5,3,7,0], between: [200,-0,200,-0,0] };
+    const config1 = { add: [2,-5,3,7,0], between: [30,-20,30,10,0] };
     const config2 = { add: [2,-5,3,-3,3], between: [ 20,0,700,0,20] };
     const config3 = { add: [2,-5,3,-10,0], between: [400,0,200,-0,0] };
+    const config4 = { start: [0, 0, 256, 0, 0], add: [259,0,-259,0,0], between: [51,0,-51,0,0] };
 
-    const config = [ config0, config1, config2, config3 ];
     let configNr = 0;
-    let currentConfig = config[0];
+
+    const config = [ config0, config3, config4, config2, config1 ];
+    let currentConfig = config[configNr];
     
     const ballSize = 100;
     const barHeight = 80;
@@ -82,9 +84,20 @@ const SinusBalls3d = function(playfield) {
     let sinus = [];
     let sinus2 = [];
 
+    initConfig();
     createBalls();
     generateSinusArray(sinus, 1024, 1);
     generateSinusArray(sinus2, 1024, 0.5);
+
+    function initConfig() {
+        if ('start' in currentConfig) {
+            for (let i = 0; i < ballDeg.length; ++i) {
+                ballDeg[i] = currentConfig.start[i];
+            }
+        } else {
+            ballDeg.fill(0, 0, ballDeg.length);
+        }
+    }
 
     function next() {
         ++configNr;
@@ -93,8 +106,7 @@ const SinusBalls3d = function(playfield) {
         }
 
         currentConfig = config[configNr];
-        
-        ballDeg.fill(0, 0, ballDeg.length);
+        initConfig();
     }
     
     function setScreenSize(w, h) {
@@ -109,8 +121,8 @@ const SinusBalls3d = function(playfield) {
             balls.push(ball);
         }
     }
-    
-    function animate() {
+
+    function processBalls() {
         const sinLength = sinus.length;
 
         const deg = [...ballDeg];
@@ -148,7 +160,13 @@ const SinusBalls3d = function(playfield) {
             ballDeg[i] &= sinLength-1;
         }
     }
-
+    
+    function animate() {
+        return new Promise((resolve) => {
+            processBalls();
+            resolve();
+        });
+    }
     
     return {
         animate,
@@ -171,14 +189,12 @@ const Scroller = function(playfield, text) {
     const scrollSinOffset = 20;
     const barHeight = 80;
 
-    let sinus = [];
     let letters = [];
 
     let width = playfield.clientWidth;
     let height = playfield.clientHeight;
 
     createLetters();
-    generateSinusArray(sinus, 360, 1);
     
     function setScreenSize(w, h) {
         width = w;
@@ -198,39 +214,41 @@ const Scroller = function(playfield, text) {
         }
     }
 
-    function animate() {
+    const getTextPosAndFx = (pos, fx) => {
+        const allowedFx = [ 0, 1, 2 ];
+        
+        while(true) {
+            if (pos >= text.length) {
+                pos = 0;
+                fx = 0;
+            }
+            
+            const foundChar = text.charCodeAt(pos);
+            
+            if (allowedFx.includes(foundChar)) {
+                fx = foundChar;
+            } else {
+                return { pos: pos, fx: fx };
+            }
+            
+            ++pos;
+        }
+    };
+
+    function processChars() {
         let pos = scrollPos;
         let deg = scrollDeg;
 
         let tpos = textPos;
         let tfx = textFx;
         
-        const sinLength = sinus.length;
+        const maxDeg = 360;
         const areaHeight = height - fontHeight - (barHeight * 2);
-
-        const getTextPosAndFx = (pos, fx) => {
-            const allowedFx = [ 0, 1, 2 ];
-
-            while(true) {
-                if (pos >= text.length) {
-                    pos = 0;
-                    fx = 0;
-                }
-                
-                const foundChar = text.charCodeAt(pos);
-                
-                if (allowedFx.includes(foundChar)) {
-                    fx = foundChar;
-                } else {
-                    return { pos: pos, fx: fx };
-                }
-                
-                ++pos;
-            }
-        };
+        const radian = Math.PI / 180;
 
         for (const letter of letters) {
-            const y = sinus[deg] * (areaHeight/2) + (areaHeight/2) + barHeight;
+            const sinus = Math.sin(deg * radian);
+            const y = sinus * (areaHeight/2) + (areaHeight/2) + barHeight;
 
             const found = getTextPosAndFx(tpos, tfx);
             tpos = found.pos;
@@ -239,9 +257,9 @@ const Scroller = function(playfield, text) {
             if (tfx === 0) {
                 letter.rotate = 0;
             } else if (tfx === 1) {
-                letter.rotate = sinus[deg];
+                letter.rotate = sinus;
             } else if (tfx === 2) {
-                letter.rotate = deg * Math.PI/180;
+                letter.rotate = deg * radian;
             }
 
             letter.x = pos;
@@ -252,7 +270,7 @@ const Scroller = function(playfield, text) {
 
             ++tpos;
             deg += scrollSinOffset;
-            deg %= sinLength;
+            deg %= maxDeg;
         }
 
         scrollDeg += scrollSinSpeed;
@@ -268,7 +286,14 @@ const Scroller = function(playfield, text) {
             textFx = found.fx;
         }
 
-        scrollDeg %= sinLength;
+        scrollDeg %= maxDeg;
+    }
+    
+    function animate() {
+        return new Promise((resolve) => {
+            processChars();
+            resolve();
+        });
     }
 
     return {
@@ -303,9 +328,18 @@ const startDemo = function() {
         scroller.createLetters();
     });
 
-    function animate() {
-        balls.animate();
-        scroller.animate();
+    async function animate() {
+        //const s = Date.now();
+        
+        let first = balls.animate();
+        //await first;
+        let second = scroller.animate();
+        //await second;
+        
+        await Promise.all([first, second]);
+
+        //console.log(Date.now() - s);
+        
         requestAnimationFrame(animate);
     }
    
@@ -340,6 +374,8 @@ const text = "                    "
       + "Hello dudes, this is my first demo in the browser."
       + "      "
       + "\x01This demo was made in november 2022."
+      + "      "
+      + "Press left mouse button for different balls movements."
       + "      "
       + "\x00If you don't know Amiga or C64 old demo style let me explain that what you see is just sinus balls with a little 3d perspective and DYCP scroll text."
       + " DYCP stands for different Y charset position."
