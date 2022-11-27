@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded',() => {
     const title = document.getElementById('title');
     const demo = document.getElementById('demo');
     start.addEventListener('click', (event) => {
-        //loadAndPlayMusic();
+        loadAndPlayMusic();
         title.style.display = 'none';
         demo.style.display = 'block';
         startDemo();
@@ -75,7 +75,6 @@ const SinusBalls3d = function(playfield) {
     let currentConfig = config[configNr];
     
     const ballSize = 100;
-    const barHeight = 80;
     
     let width = playfield.clientWidth;
     let height = playfield.clientHeight;
@@ -127,7 +126,7 @@ const SinusBalls3d = function(playfield) {
 
         const deg = [...ballDeg];
         
-        const areaHeight = height - ballSize - (barHeight * 2);
+        const areaHeight = height - ballSize;
 
         for (const ball of balls) {
             let posx = sinus[deg[0]] + sinus2[deg[1]] * 0.8;
@@ -144,7 +143,7 @@ const SinusBalls3d = function(playfield) {
             ball.size = posz;
             
             posx = posx * ((width/4)-ballSize) + (width/2) - (ballSize/2);
-            posy = posy * (areaHeight/3) + (areaHeight/2) + barHeight;
+            posy = posy * (areaHeight/3) + (areaHeight/2);
 
             ball.x = posx;
             ball.y = posy;
@@ -187,7 +186,6 @@ const Scroller = function(playfield, text) {
     const scrollSpeed = 6;
     const scrollSinSpeed = 2;
     const scrollSinOffset = 20;
-    const barHeight = 80;
 
     let letters = [];
 
@@ -243,12 +241,12 @@ const Scroller = function(playfield, text) {
         let tfx = textFx;
         
         const maxDeg = 360;
-        const areaHeight = height - fontHeight - (barHeight * 2);
+        const areaHeight = height - fontHeight;
         const radian = Math.PI / 180;
 
         for (const letter of letters) {
             const sinus = Math.sin(deg * radian);
-            const y = sinus * (areaHeight/2) + (areaHeight/2) + barHeight;
+            const y = sinus * (areaHeight/2) + (areaHeight/2);
 
             const found = getTextPosAndFx(tpos, tfx);
             tpos = found.pos;
