@@ -1,9 +1,10 @@
+
 "use strict";
 
 document.addEventListener('DOMContentLoaded',() => {
-    const start = document.querySelector("[id='title'] a");
-    const title = document.getElementById('title');
-    const demo = document.getElementById('demo');
+    const start = document.querySelector("[class='title'] a");
+    const title = document.querySelector('.title');
+    const demo = document.querySelector('.demo');
     start.addEventListener('click', (event) => {
         loadAndPlayMusic();
         title.style.display = 'none';
@@ -47,6 +48,24 @@ const Ball = function() {
     };
 };
 
+const Field = function() {
+    const ball = document.createElement('div');
+    ball.className = 'chessfield';
+    
+    return {
+        get element() { return ball; },
+        set x(value) { ball.style.left = `${value}px`; },
+        set y(value) { ball.style.top = `${value}px`; },
+        set z(value) { ball.style.zIndex = `${value}`; },
+        set size(value) {
+            ball.style.width = `${value}px`;
+            ball.style.height = `${value}px`;
+        },
+        //get x() { return parseInt(ball.style.left, 10); },
+        //get y() { return parseInt(ball.style.top, 10); }
+    };
+};
+
 const generateSinusArray = function(s, max, amp)
 {
     const radian = Math.PI / 180;
@@ -62,16 +81,19 @@ const SinusBalls3d = function(playfield) {
 
     const ballDeg = [0,0,0,0,0];
 
-    // x, x2, y, y2, z
-    const config0 = { add: [2,1,-5,3,2], between: [ 60,-50,40,-30,20] };
-    const config1 = { add: [2,-5,3,7,0], between: [30,-20,30,10,0] };
-    const config2 = { add: [2,-5,3,-3,3], between: [ 20,0,700,0,20] };
-    const config3 = { add: [2,-5,3,-10,0], between: [400,0,200,-0,0] };
-    const config4 = { start: [0, 0, 256, 0, 0], add: [259,0,-259,0,0], between: [51,0,-51,0,0] };
-
+    // x, x2, y, y2, z, 
+    const config0 = { add: [2,1,-5,3,2], between: [ 60,-50,40,-30,20], scale: [1, 0.5] };
+    const config1 = { add: [2,-5,3,7,0], between: [30,-20,30,10,0], scale: [1, 0.5] };
+    const config2 = { add: [2,-5,3,-3,3], between: [ 20,0,700,0,20], scale: [1, 0.5] };
+    const config3 = { add: [2,-5,3,-10,0], between: [400,0,200,0,0], scale: [1, 0.5] };
+    const config4 = { start: [0, 0, 256, 0, 0], add: [4,0,-4,0,0], between: [51,0,-51,0,0], scale: [1, 0.5] };
+    const config5 = { start: [0, 0, 256, 0, 0], add: [5,3,-5,3,0], between: [40,0,-40,0,10], scale: [1, 0.7] };
+    const config6 = { start: [0, 0, 256, 0, 0], add: [3,7,-3,9,0], between: [51,0,-51,0,0], scale: [1, 0.8] };
+    const config7 = { add: [2,-0,6,-2,0], between: [-40,0,80,20,0], scale: [1, 0.8] };
+    
     let configNr = 0;
 
-    const config = [ config0, config3, config4, config2, config1 ];
+    const config = [ config0, config3, config7, config4, config2, config1, config6, config5 ];
     let currentConfig = config[configNr];
     
     const ballSize = 100;
@@ -81,12 +103,10 @@ const SinusBalls3d = function(playfield) {
 
     let balls = [];
     let sinus = [];
-    let sinus2 = [];
 
     initConfig();
     createBalls();
     generateSinusArray(sinus, 1024, 1);
-    generateSinusArray(sinus2, 1024, 0.5);
 
     function initConfig() {
         if ('start' in currentConfig) {
@@ -128,21 +148,30 @@ const SinusBalls3d = function(playfield) {
         
         const areaHeight = height - ballSize;
 
+        const usez = currentConfig.add[4] !== 0 || currentConfig.between[4] !== 0;
+        
         for (const ball of balls) {
-            let posx = sinus[deg[0]] + sinus2[deg[1]] * 0.8;
-            let posy = sinus[deg[2]] + sinus2[deg[3]] * 0.8;
-            let posz = sinus[deg[4]];
-            
-            const distanceX = 700;
-            const distanceY = 500;
-            posx = posx * ( distanceX / (posz + distanceX));
-            posy = posy * ( distanceY / (posz + distanceY));
-            posz = posz * 50 + 80;
+            let posx = (sinus[deg[0]] * currentConfig.scale[0]) + (sinus[deg[1]] * currentConfig.scale[1]);
+            let posy = (sinus[deg[2]] * currentConfig.scale[0]) + (sinus[deg[3]] * currentConfig.scale[1]);
 
-            ball.z = Math.round(posz);
-            ball.size = posz;
+            // Z dimension is optional
+            if (usez) {
+                let posz = sinus[deg[4]];
+
+                const distanceX = 700;
+                const distanceY = 500;
+                posx = posx * ( distanceX / (posz + distanceX));
+                posy = posy * ( distanceY / (posz + distanceY));
+
+                posz = posz * 50 + 80;
+                ball.z = Math.round(posz);
+                ball.size = posz;
+            } else {
+                ball.size = 100;
+                ball.z = 1;
+            }
             
-            posx = posx * ((width/4)-ballSize) + (width/2) - (ballSize/2);
+            posx = posx * ((width/3) - ballSize) + (width/2) - (ballSize/2);
             posy = posy * (areaHeight/3) + (areaHeight/2);
 
             ball.x = posx;
@@ -174,7 +203,7 @@ const SinusBalls3d = function(playfield) {
     };
 };
 
-const Scroller = function(playfield, text) {
+const TextScroller = function(playfield, text) {
     const letterWidth = 80;
     const fontHeight = 100;
 
@@ -302,10 +331,93 @@ const Scroller = function(playfield, text) {
     };
 };
 
+
+const Chessboard = function(playfield) {
+    const size = 200;
+    let move = 0;
+    const speed = 4;
+    
+    let elements = [];
+
+    let width = playfield.clientWidth;
+    let height = playfield.clientHeight;
+    
+    create();
+    
+    function setScreenSize(w, h) {
+        width = w;
+        height = h;
+    }
+    
+    function remove() {
+        elements = [];
+    }
+    
+    function create() {
+        const lines = Math.ceil(height / size) * 4;
+
+        // set chessboard height (before rotation)
+        playfield.style.height = `${lines * size}px`;
+        
+        for (let y = 0; y < lines; y++) {
+            const even = y%2;
+            for (let x = even == 0 ? 0 : 1; x < (width / size) + 2; x++) {
+                if ((x-even)%2 == 0) {
+                    const field = new Field();
+                    field.size = size;
+                    field.x = x * size;
+                    field.y = y * size;
+                    playfield.appendChild(field.element);
+                    elements.push(field);
+                }
+            }
+        }
+    }
+
+    function process() {
+        let x = 0;
+        let y = 0;
+        
+        for (const element of elements) {
+            element.x = x * size + move;
+            element.y = y * size;
+            x += 2;
+            if (x >= (width / size) + 2)
+            {
+                ++y;
+                x = y%2;
+            }
+        }
+
+        move += speed;
+        if (move > size*2) {
+            move = 0;
+        }
+            
+        
+    }
+    
+    function animate() {
+        return new Promise((resolve) => {
+            process();
+            resolve();
+        });
+    }
+
+    return {
+        animate,
+        remove,
+        create,
+        setScreenSize,
+    };
+};
+
+
 const startDemo = function() {
-    const playfield = document.getElementById('playfield');
+    const playfield = document.querySelector('.playfield');
     const balls = new SinusBalls3d(playfield);
-    const scroller = new Scroller(playfield, text);
+    const scroller = new TextScroller(playfield, text);
+    const chessboard = new Chessboard(document.querySelector('div.chessboard > div'));
 
     playfield.addEventListener('click', function() {
         balls.next();
@@ -320,10 +432,20 @@ const startDemo = function() {
             letter.parentNode.removeChild(letter);
         }
 
+        const domChessfield = document.querySelectorAll('.chessfield');
+        for (const el of domChessfield) {
+            el.parentNode.removeChild(el);
+        }
+        
         balls.setScreenSize(w, h);
+        
         scroller.setScreenSize(w, h);
         scroller.removeLetters();
         scroller.createLetters();
+
+        chessboard.setScreenSize(w, h);
+        chessboard.remove();
+        chessboard.create();
     });
 
     async function animate() {
@@ -333,8 +455,10 @@ const startDemo = function() {
         //await first;
         let second = scroller.animate();
         //await second;
+
+        let third = chessboard.animate();
         
-        await Promise.all([first, second]);
+        await Promise.all([first, second, third]);
 
         //console.log(Date.now() - s);
         
@@ -371,12 +495,17 @@ const loadAndPlayMusic = function() {
 const text = "                    "
       + "Hello dudes, this is my first demo in the browser."
       + "      "
-      + "\x01This demo was made in november 2022."
+      + "\x01This demo was made in November and December 2022."
       + "      "
-      + "Press left mouse button for different balls movements."
+      + "Press left mouse button for different ball movements."
       + "      "
-      + "\x00If you don't know Amiga or C64 old demo style let me explain that what you see is just sinus balls with a little 3d perspective and DYCP scroll text."
+      + "\x00If you don't know Amiga old demo style let me explain that what you see is just sinus balls with a little 3d perspective and DYCP scroll text."
       + " DYCP stands for different Y charset position."
       + "      "
+      + "To make this demo work smoothly I have to make brower window smaller... It's not fast enough to work fluent in fullscreen on my machine. But this demo is made without using canva."
+      + "      "
       + "\x02Music comes from amiga's *His Master's Noise* music disk."
+      + "      "
+      + "\x01Greetings go to all the demo fans :) Merry Christmas and Happy New Year 2023 !"
+      + "      "
       + "\x00     ... let's wrap the text...";
