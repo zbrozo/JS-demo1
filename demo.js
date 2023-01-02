@@ -115,7 +115,7 @@ const SinusBalls3d = function(playfield) {
     createBalls();
     generateSinusArray(sinus, 1024, 1);
     
-    function initTransform() {
+    function startTransformation() {
         let nr = configNr;
         ++nr;
         if (nr >= config.length) {
@@ -127,6 +127,10 @@ const SinusBalls3d = function(playfield) {
         transformStep = 1;
     }
 
+    function isTransforming() {
+        return (transformStep > 0) && (transformStep != transformSteps);
+    }
+    
     function processTransform() {
         nextPositions = calcBalls(nextDeg, nextConfig);
        
@@ -262,7 +266,8 @@ const SinusBalls3d = function(playfield) {
     return {
         animate,
         setScreenSize,
-        initTransform,
+        startTransformation,
+        isTransforming,
         processTransform
     };
 };
@@ -478,19 +483,23 @@ const Chessboard = function(playfield) {
 
 
 const startDemo = function() {
-    const TIMEOUT_NEXT_OBJECT = 1000 * 30;
+    const TIMEOUT_NEXT_OBJECT = 1000 * 20;
     const playfield = document.querySelector('.playfield');
     const balls = new SinusBalls3d(playfield);
     const scroller = new TextScroller(playfield, text);
     const chessboard = new Chessboard(document.querySelector('div.chessboard > div'));
-
+    let timeoutId;
+   
     function transform() {
-        balls.initTransform();
-        setTimeout(transform, TIMEOUT_NEXT_OBJECT);
+        balls.startTransformation();
+        timeoutId = setTimeout(transform, TIMEOUT_NEXT_OBJECT);
     }
     
     playfield.addEventListener('click', function() {
-        balls.initTransform();
+        if (!balls.isTransforming()) {
+            clearTimeout(timeoutId);
+            transform();
+        }
     });
     
     window.addEventListener('resize', function() {
@@ -535,7 +544,7 @@ const startDemo = function() {
         requestAnimationFrame(animate);
     }
 
-    setTimeout(transform, TIMEOUT_NEXT_OBJECT);
+    timeoutId = setTimeout(transform, TIMEOUT_NEXT_OBJECT);
 
     requestAnimationFrame(animate);
 };
