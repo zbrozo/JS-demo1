@@ -79,8 +79,12 @@ const generateSinusArray = function(s, max, amp)
 const SinusBalls3d = function(playfield) {
     const ballNumber = 20;
 
-    const ballDeg = [0,0,0,0,0];
-
+    const transformSteps = 200;
+    let transformStep = 0;
+    
+    let currDeg = [0,0,0,0,0];
+    let nextDeg = [0,0,0,0,0];
+    
     // x, x2, y, y2, z, 
     const config0 = { add: [2,1,-5,3,2], between: [ 60,-50,40,-30,20], scale: [1, 0.5] };
     const config1 = { add: [2,-5,3,7,0], between: [30,-20,30,10,0], scale: [1, 0.5] };
@@ -92,29 +96,59 @@ const SinusBalls3d = function(playfield) {
     const config7 = { add: [2,-0,6,-2,0], between: [-40,0,80,20,0], scale: [1, 0.8] };
     
     let configNr = 0;
-
     const config = [ config0, config3, config7, config4, config2, config1, config6, config5 ];
-    let currentConfig = config[configNr];
+    let currConfig = config[configNr];
+    let nextConfig;
     
     const ballSize = 100;
     
     let width = playfield.clientWidth;
     let height = playfield.clientHeight;
 
+    let currPositions = [];
+    let nextPositions = [];
+    
     let balls = [];
     let sinus = [];
 
-    initConfig();
+    initConfig(currDeg, currConfig);
     createBalls();
     generateSinusArray(sinus, 1024, 1);
+    
+    function initTransform() {
+        let nr = configNr;
+        ++nr;
+        if (nr >= config.length) {
+            nr = 0;
+        }
 
-    function initConfig() {
-        if ('start' in currentConfig) {
-            for (let i = 0; i < ballDeg.length; ++i) {
-                ballDeg[i] = currentConfig.start[i];
+        nextConfig = config[nr];
+        initConfig(nextDeg, nextConfig);
+        transformStep = 1;
+    }
+
+    function processTransform() {
+        nextPositions = calcBalls(nextDeg, nextConfig);
+       
+        for (let i = 0; i < ballNumber; i++) {
+            let x = currPositions[i][0] + ((nextPositions[i][0] - currPositions[i][0]) / transformSteps) * transformStep;
+            let y = currPositions[i][1] + ((nextPositions[i][1] - currPositions[i][1]) / transformSteps) * transformStep;
+            let z = currPositions[i][2] + ((nextPositions[i][2] - currPositions[i][2]) / transformSteps) * transformStep;
+            nextPositions[i] = [x,y,z];
+        }
+
+        ++transformStep;
+        
+        return (transformStep != transformSteps);
+    }
+    
+    function initConfig(deg, config) {
+        if ('start' in config) {
+            for (let i = 0; i < deg.length; ++i) {
+                deg[i] = config.start[i];
             }
         } else {
-            ballDeg.fill(0, 0, ballDeg.length);
+            deg.fill(0, 0, deg.length);
         }
     }
 
@@ -123,9 +157,10 @@ const SinusBalls3d = function(playfield) {
         if (configNr >= config.length) {
             configNr = 0;
         }
-
-        currentConfig = config[configNr];
-        initConfig();
+        currConfig = config[configNr];
+        
+        initConfig(currDeg, currConfig);
+        currDeg = [...nextDeg];
     }
     
     function setScreenSize(w, h) {
@@ -141,57 +176,85 @@ const SinusBalls3d = function(playfield) {
         }
     }
 
-    function processBalls() {
+    function calcBalls(deg, config) {
+        let positions = [];
+        
         const sinLength = sinus.length;
 
-        const deg = [...ballDeg];
+        const tmpDeg = [...deg];
         
-        const areaHeight = height - ballSize;
-
-        const usez = currentConfig.add[4] !== 0 || currentConfig.between[4] !== 0;
+        const usez = config.add[4] !== 0 || config.between[4] !== 0;
         
-        for (const ball of balls) {
-            let posx = (sinus[deg[0]] * currentConfig.scale[0]) + (sinus[deg[1]] * currentConfig.scale[1]);
-            let posy = (sinus[deg[2]] * currentConfig.scale[0]) + (sinus[deg[3]] * currentConfig.scale[1]);
-
+        for (let i = 0; i < ballNumber; i++) {
+            let posx = (sinus[tmpDeg[0]] * config.scale[0]) + (sinus[tmpDeg[1]] * config.scale[1]);
+            let posy = (sinus[tmpDeg[2]] * config.scale[0]) + (sinus[tmpDeg[3]] * config.scale[1]);
+            let posz = 0;
+            
             // Z dimension is optional
             if (usez) {
-                let posz = sinus[deg[4]];
+                posz = sinus[tmpDeg[4]];
 
                 const distanceX = 700;
                 const distanceY = 500;
                 posx = posx * ( distanceX / (posz + distanceX));
                 posy = posy * ( distanceY / (posz + distanceY));
-
-                posz = posz * 50 + 80;
-                ball.z = Math.round(posz);
-                ball.size = posz;
+                posz = Math.round(posz * 50 + 80);
             } else {
-                ball.size = 100;
-                ball.z = 1;
+                posz = 100;
             }
+
+            positions.push([posx, posy, posz]);
             
-            posx = posx * ((width/3) - ballSize) + (width/2) - (ballSize/2);
-            posy = posy * (areaHeight/3) + (areaHeight/2);
-
-            ball.x = posx;
-            ball.y = posy;
-
-            for (let i = 0; i < ballDeg.length; ++i) {
-                deg[i] += currentConfig.between[i];
-                deg[i] &= sinLength-1;
+            for (let i = 0; i < deg.length; ++i) {
+                tmpDeg[i] += config.between[i];
+                tmpDeg[i] &= sinLength-1;
             }
         }
 
-        for (let i = 0; i < ballDeg.length; ++i) {
-            ballDeg[i] += currentConfig.add[i];
-            ballDeg[i] &= sinLength-1;
+        for (let i = 0; i < deg.length; ++i) {
+            deg[i] += config.add[i];
+            deg[i] &= sinLength-1;
+        }
+
+        return positions;
+    }
+
+    function processBalls(positions) {
+        let nr = 0;
+        const areaHeight = height - ballSize;
+        
+        for (const ball of balls) {
+            const pos = positions[nr];
+            
+            let posx = pos[0];
+            let posy = pos[1];
+            let posz = pos[2];
+            
+            posx = posx * ((width/3) - ballSize) + (width/2) - (ballSize/2);
+            posy = posy * (areaHeight/3) + (areaHeight/2);
+            
+            ball.x = posx;
+            ball.y = posy;
+            ball.z = posz;
+            ball.size = posz;
+            
+            ++nr;
         }
     }
     
     function animate() {
         return new Promise((resolve) => {
-            processBalls();
+            currPositions = calcBalls(currDeg, currConfig);
+            if (transformStep > 0) {
+                if (!processTransform()) {
+                    transformStep = 0;
+                    next();
+                }
+                processBalls(nextPositions);
+            } else {
+                processBalls(currPositions);
+            }
+            
             resolve();
         });
     }
@@ -199,7 +262,8 @@ const SinusBalls3d = function(playfield) {
     return {
         animate,
         setScreenSize,
-        next
+        initTransform,
+        processTransform
     };
 };
 
@@ -414,13 +478,19 @@ const Chessboard = function(playfield) {
 
 
 const startDemo = function() {
+    const TIMEOUT_NEXT_OBJECT = 1000 * 30;
     const playfield = document.querySelector('.playfield');
     const balls = new SinusBalls3d(playfield);
     const scroller = new TextScroller(playfield, text);
     const chessboard = new Chessboard(document.querySelector('div.chessboard > div'));
 
+    function transform() {
+        balls.initTransform();
+        setTimeout(transform, TIMEOUT_NEXT_OBJECT);
+    }
+    
     playfield.addEventListener('click', function() {
-        balls.next();
+        balls.initTransform();
     });
     
     window.addEventListener('resize', function() {
@@ -464,7 +534,9 @@ const startDemo = function() {
         
         requestAnimationFrame(animate);
     }
-   
+
+    setTimeout(transform, TIMEOUT_NEXT_OBJECT);
+
     requestAnimationFrame(animate);
 };
 
@@ -473,8 +545,8 @@ const loadAndPlayMusic = function() {
     const music = Uint8Array.from(atob(amegas), c => c.charCodeAt(0)).buffer;
     const player = window.neoart.Trackers.Soundtracker();
     player.load(music);
+    player.loop = 1;
     player.play();
-
     /*    
     var loader = window.neoart.FileLoader();
     var player = loader.player;
@@ -497,12 +569,12 @@ const text = "                    "
       + "      "
       + "\x01This demo was made in November and December 2022."
       + "      "
-      + "Press left mouse button for different ball movements."
+      + "Press left mouse button for different ball movements or wait a moment for automatic sinus *transformation*."
       + "      "
-      + "\x00If you don't know Amiga old demo style let me explain that what you see is just sinus balls with a little 3d perspective and DYCP scroll text."
+      + "\x00If you don't know Amiga classic demo style let me explain that what you see is just sinus balls with a little 3d perspective and DYCP scroll text."
       + " DYCP stands for different Y charset position."
       + "      "
-      + "To make this demo work smoothly I have to make brower window smaller... It's not fast enough to work fluent in fullscreen on my machine. But this demo is made without using canva."
+      + "I find that this demo works faster on Firefox than Chromium. It is made without using Canva object, everything is made using DIV elements..."
       + "      "
       + "\x02Music comes from amiga's *His Master's Noise* music disk."
       + "      "
